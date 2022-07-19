@@ -5,7 +5,7 @@ This is a game made in Programming Laboratory classes
 ##
 The algorith uses trees in C++ to represent the "invaders".
 
-the tree follows the balancement rules of AVL, so the tree is alwayas balanced.
+the tree follows the balancement rules of AVL, so the tree is always balanced.
 
 this is a game made with **ALLEGRO 5**
 
