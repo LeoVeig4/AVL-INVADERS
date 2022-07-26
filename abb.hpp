@@ -337,3 +337,17 @@ void invaders_limpa(Abb<T>* no){
     invaders_limpa(no->dir);
     delete no;
 }
+template<typename T>
+Abb<T>* abb_acha_valor(Abb<T>*no, int valor){
+    if(no==nullptr){
+        return nullptr;
+    }
+
+    if(no->dado.valor == valor){
+        return  abb_acha_valor(no->esq, valor);
+    }else if( no->dado.valor < valor){
+        return  abb_acha_valor(no->dir, valor);
+    }else{
+        return no;
+    }
+}

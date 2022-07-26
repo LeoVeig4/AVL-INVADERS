@@ -97,7 +97,8 @@ struct Jogo {
   Estado estado;             // estado do jogo
   laser_t laser;             // laser
   std::list<tiro_t> tiros;   // tiros ativos
-  
+  std::list<tiro_t> tiros_invaders;
+
   Abb<Invader>* invaders;     // árvore de invaders
   Ponto p0;                   // ponto de referência da árvore na tela
   int velocidade;             // velocidade de movimento 
@@ -140,6 +141,7 @@ struct Jogo {
     }
     tela.bitmap= al_load_bitmap("fundo_jogo.bmp");
     abb_destroi(invaders);
+    tiros_invaders.clear();
     invaders = nullptr;
     p0.x = 0;
     p0.y = 10;
@@ -227,6 +229,28 @@ struct Jogo {
     tiro.c.raio = 5;
     tiros.push_back(tiro);
   }
+  void tiro_invaders_fogo(void){
+    int valor = rand() % 100;
+    auto i1= abb_acha_valor(invaders, valor);
+
+    if(i1!=nullptr){
+      valor = rand() % 10;
+      if(valor < 3){
+        tiro_t tiro;
+        valor= rand() % 4;
+        if(valor > 1){
+          tiro.ativo = true;
+        }else{
+          tiro.ativo = false;
+        }
+        tiro.v = 5;
+        tiro.c.centro.x = i1->dado.c.centro.x;
+        tiro.c.centro.y = i1->dado.c.centro.y;
+        tiro.c.raio = 2;
+        tiros_invaders.push_back(tiro);
+      }
+    }
+  }
 
  // desenha o tiro, sendo que a cada desenha sua cor muda.
   void tiro_desenha(void) {
@@ -259,10 +283,10 @@ struct Jogo {
   void laser_altera_velocidade() {
     if (tecla == ALLEGRO_KEY_A) {
       /* altera velocidade mais a esquerda */
-      laser.v -= 1;
+      laser.v -= 3;
     } else if (tecla == ALLEGRO_KEY_D) {
       /* altera velocidade mais a direita */
-      laser.v += 1;
+      laser.v += 3;
     }
   }
 
@@ -303,6 +327,15 @@ struct Jogo {
     desenha_arvore(a->dir, a->dado.c.centro);
   }
 
+  void tiro_invaders_desenha(){
+    if (tiros_invaders.empty() == false) {
+      for(auto t = tiros_invaders.begin(); t != tiros_invaders.end(); t++){
+        Cor outra = {0.0, 1.0, 0.0};
+        tela.cor(outra);
+        tela.circulo((*t).c);
+      }
+    }
+  }
   // desenha todas as figuras e objetos na tela
   void desenha_figuras() {
     Cor azul = {0.2, 0.3, 0.8};
@@ -320,6 +353,7 @@ struct Jogo {
     laser_atira();
     laser_desenha();
     tiro_desenha();
+    tiro_invaders_desenha();
   }
 
   // realiza um percurso em largura
@@ -351,7 +385,7 @@ struct Jogo {
           invaders = abb_remove(invaders, *v );
           cont++;
           score++;
-          tiros.erase(t);
+          (*t).ativo = false;
         }
       } // for tiros
     } // if tiros
@@ -391,6 +425,34 @@ struct Jogo {
     move_arvore( invaders, 0, 600, 0 );
   }
 
+  void tiro_invaders_move(){
+    for(auto t = tiros_invaders.begin(); t != tiros_invaders.end(); /* nao precisa aqui */){
+      //testa a parede e muda a direção
+      //bool ativo= true vai pra direita e bool ativo=false vai pra esquerda
+      if ( ((*t).c.centro.x +(*t).c.raio + (*t).v >= 600 && (*t).ativo==true)){
+        (*t).ativo=false;
+        std::cout<<"passou"<<std::endl;
+      }
+      if ( ((*t).c.centro.x +(*t).c.raio - (*t).v <= 0 && (*t).ativo==false)){
+        (*t).ativo=true;
+      }
+      //move e soma
+      if((*t).ativo==true){
+        (*t).c.centro.y += (*t).v;
+        (*t).c.centro.x += (*t).v;
+      }else{
+        (*t).c.centro.y += (*t).v;
+        (*t).c.centro.x -= (*t).v;
+      }
+  
+      /* saiu da tela */
+      if ((*t).c.centro.y < 0.0) {
+        t = tiros.erase(t);
+      } else
+        t++;
+    }
+  }
+
   // Cria um novo invader e insere na árvore. O valor aleatório
   // fica entre [0,100]. 
   // - Se a direção é direita, insere na sub-árvore da direita 
@@ -404,6 +466,19 @@ struct Jogo {
     sinalNovoInvader = false;
   }
 
+  bool tiro_invaders_verifica_interceptacao(void){
+    bool pegou = false;
+    if (tiros_invaders.empty() == false) {
+      for( auto t = tiros_invaders.begin(); t != tiros_invaders.end(); t++ ) {
+
+        if( intercr((*t).c, laser.ret) ){
+          pegou = true;
+        }
+      } // for tiros
+    } // if tiros
+
+    return pegou;
+  }
   // Esta função tem os seguintes passos:
   // 1 - movimenta todos os objetos do centipede
   // 2 - movimenta o laser e tiro
@@ -419,6 +494,8 @@ struct Jogo {
     tiro_movimenta();
     // verifica se algum tiro pegou um bloco
     tiro_verifica_interceptacao();
+    //move tiros dos invaders
+    tiro_invaders_move();
   }
 
   void legenda(void){
@@ -447,8 +524,9 @@ struct Jogo {
     // le ultima tecla
     tecla = tela.tecla();
     // tecla Q termina
-    if (tecla != ALLEGRO_KEY_Q && !matou_todos() && !chegou_fim() ) {
+    if (tecla != ALLEGRO_KEY_Q && !matou_todos() && !chegou_fim() && !tiro_invaders_verifica_interceptacao()) {
       // faz o resto
+      tiro_invaders_fogo();
       move_figuras();
       tela.limpa();
       al_draw_bitmap(tela.bitmap,0,0,0);
@@ -459,14 +537,14 @@ struct Jogo {
       tela.espera(30);
     } else {
       int x, y;
-      if(!chegou_fim()){
-        tela.bitmap= al_load_bitmap("tela_ganhou.bmp");
-        x=150;
-        y=290;
-      }else {
+      if(tiro_invaders_verifica_interceptacao() || chegou_fim()){
         tela.bitmap= al_load_bitmap("tela_perdeu.bmp");
         x=150;
         y=150;
+      }else {
+        tela.bitmap= al_load_bitmap("tela_ganhou.bmp");
+        x=150;
+        y=290;
       }
 
       if(tecla == ALLEGRO_KEY_Q){
