@@ -1,0 +1,7 @@
+# Ignore build outputs
+invaders
+*.exe
+*.o
+
+# Ignore intermediate build directories
+build/
